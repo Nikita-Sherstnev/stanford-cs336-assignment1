@@ -120,8 +120,8 @@ def run_get_batch(
         ind_data.append(list(range(i, i+context_length)))
         ind_targets.append(list(range(i+1, i+1+context_length)))
 
-    return torch.tensor(dataset[ind_data], device=device), \
-           torch.tensor(dataset[ind_targets], device=device)
+    return torch.tensor(dataset[ind_data], device=device, dtype=torch.int), \
+           torch.tensor(dataset[ind_targets], device=device, dtype=torch.int)
 
 
 def run_save_checkpoint(
@@ -130,7 +130,7 @@ def run_save_checkpoint(
     iteration: int,
     out: str | os.PathLike | BinaryIO | IO[bytes],
 ) -> int:
-    state = {'model': model.state_dict(),
+    state = {'model': model._orig_mod.state_dict(),
              'optim': optimizer.state_dict(),
              'iteration': iteration}
     torch.save(state, out)
