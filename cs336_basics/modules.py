@@ -36,7 +36,7 @@ def run_linear(
 
 
 class Embedding(torch.nn.Module):
-    def __init__(self, num_embeddings: int, embedding_dim: int, 
+    def __init__(self, num_embeddings: int, embedding_dim: int,
                  device: torch.device | None = None, dtype: torch.dtype | None = None):
         super().__init__()
         embs = torch.empty((num_embeddings, embedding_dim), device=device, dtype=dtype)
@@ -169,6 +169,13 @@ def softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ...
     return exps / torch.sum(exps, dim=dim, keepdim=True)
 
 
+def softmax_with_temp(in_features: Float[Tensor, " ..."], dim: int, temp: float = 1.) -> Float[Tensor, " ..."]:
+    maxes, inds = torch.max(in_features, dim=dim, keepdim=True)
+    exps = torch.exp(in_features - maxes)
+    return exps / torch.sum(exps, dim=dim, keepdim=True)
+
+
+
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
     return softmax(in_features, dim)
 
@@ -293,17 +300,17 @@ class Transformer(nn.Module):
                  vocab_size: int, context_length: int, num_layers: int,
                  device: torch.device | None = None, dtype: torch.dtype | None = None):
         super().__init__()
-        rope = RotaryPositionalEmbedding(rope_theta, d_model//num_heads, context_length)
+        rope = RotaryPositionalEmbedding(rope_theta, d_model//num_heads, context_length, device=device)
 
         self.token_embeddings = Embedding(vocab_size, d_model, device=device, dtype=dtype)
         self.layers = nn.ModuleList(
             [TransformerBlock(d_model, num_heads, d_ff, rope, device=device, dtype=dtype)
              for _ in range(num_layers)]
         )
-        self.ln_final = RMSNorm(d_model)
-        self.lm_head = Linear(d_model, vocab_size)
+        self.ln_final = RMSNorm(d_model, device=device, dtype=dtype)
+        self.lm_head = Linear(d_model, vocab_size, device=device, dtype=dtype)
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
         x = self.token_embeddings(x)
 
         for layer in self.layers:
